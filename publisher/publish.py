@@ -327,6 +327,22 @@ def find_ig_account():
                 found.append(iba)
             for key in ("owned_instagram_accounts", "instagram_accounts"):
                 found.extend(row.get(key, {}).get("data", []))
+    # sem Página do Facebook: o próprio token diz a qual conta do Instagram ele dá acesso
+    try:
+        dbg = api("GET", "debug_token", input_token=TOKEN).get("data", {})
+        ids = set()
+        for g in dbg.get("granular_scopes", []):
+            if g.get("scope", "").startswith("instagram"):
+                ids.update(g.get("target_ids", []))
+        log(f"  token: tipo {dbg.get('type')}, escopos {[g.get('scope') for g in dbg.get('granular_scopes', [])]}")
+        for igid in ids:
+            try:
+                acc = api("GET", igid, fields="id,username")
+                found.append(acc)
+            except Exception as e:
+                log(f"  ({igid}: {e})")
+    except Exception as e:
+        log(f"  (debug_token: {e})")
     want = os.environ.get("IG_USERNAME", "somosdanpe").lower()
     for acc in found:
         if (acc.get("username") or "").lower() == want:

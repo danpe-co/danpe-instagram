@@ -3,7 +3,10 @@
   "publish_at": "2026-11-06T06:31:08-03:00",
   "type": "story",
   "media": [
-    "https://static.metricool.com/planner/202611/7887198-file-6170947429510679578.png"
+    "media/2026-11-06-story-metodo-01/01.jpg"
   ],
-  "note": "Destaque metodo"
+  "note": "Destaque metodo",
+  "source_media": [
+    "https://static.metricool.com/planner/202611/7887198-file-6170947429510679578.png"
+  ]
 }

@@ -3,7 +3,10 @@
   "publish_at": "2026-11-06T06:31:03-03:00",
   "type": "story",
   "media": [
-    "https://static.metricool.com/planner/202611/7887198-file-3453379996269672019.png"
+    "media/2026-11-06-story-72h-02/01.jpg"
   ],
-  "note": "Destaque 72h"
+  "note": "Destaque 72h",
+  "source_media": [
+    "https://static.metricool.com/planner/202611/7887198-file-3453379996269672019.png"
+  ]
 }

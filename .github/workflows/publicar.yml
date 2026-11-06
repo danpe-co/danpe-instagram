@@ -40,4 +40,5 @@ jobs:
         env:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
           MEDIA_BASE_URL: ${{ vars.MEDIA_BASE_URL }}
+          IG_USER_ID: "17841415488086983"   # @somosdanpe
         run: python publisher/publish.py

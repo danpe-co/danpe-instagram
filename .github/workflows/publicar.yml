@@ -1,0 +1,43 @@
+name: Publicar no Instagram
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # confere a fila a cada 15 min (o GitHub pode atrasar alguns minutos)
+  push:
+    branches: [main]
+    paths: ["queue/**"]      # item novo na fila: roda na hora
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicador
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências
+        run: pip install --quiet "pillow>=10"
+
+      - name: Identidade do git
+        run: |
+          git config user.name "Publicador DANPE"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Publicar o que está no horário
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          MEDIA_BASE_URL: ${{ vars.MEDIA_BASE_URL }}
+        run: python publisher/publish.py

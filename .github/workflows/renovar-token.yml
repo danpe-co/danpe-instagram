@@ -1,0 +1,38 @@
+name: Renovar token do Instagram
+
+# O token do Instagram vale 60 dias. Este fluxo renova no dia 1 e no dia 15 de cada mês.
+# Para gravar o token novo sozinho, crie o secret GH_PAT (token do GitHub com permissão
+# "Secrets: read and write" neste repositório). Sem ele, o fluxo só avisa.
+
+on:
+  schedule:
+    - cron: "17 12 1,15 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  renovar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Renovar
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          resp=$(curl -sS --fail-with-body "https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${IG_TOKEN}") || {
+            echo "::error::A Meta recusou a renovação. Gere um token novo no painel do app e atualize o secret IG_TOKEN."
+            exit 1
+          }
+          new=$(printf '%s' "$resp" | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')
+          echo "::add-mask::$new"
+          days=$(printf '%s' "$resp" | python3 -c 'import sys,json;print(int(json.load(sys.stdin)["expires_in"])//86400)')
+          echo "Token renovado: vale por mais ${days} dias."
+          if [ -n "${GH_TOKEN:-}" ]; then
+            gh secret set IG_TOKEN --body "$new" --repo "$GITHUB_REPOSITORY"
+            echo "Secret IG_TOKEN atualizado."
+          else
+            echo "::warning::Sem GH_PAT: a validade foi estendida, mas confira se o token mudou."
+          fi

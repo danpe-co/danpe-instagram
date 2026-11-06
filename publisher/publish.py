@@ -31,8 +31,11 @@ PUBLISHED = ROOT / "published"
 FAILED = ROOT / "failed"
 MEDIA = ROOT / "media"
 
-API = "https://graph.instagram.com/" + os.environ.get("IG_API_VERSION", "v23.0")
-TOKEN = os.environ.get("IG_TOKEN", "").strip()
+TOKEN = "".join(os.environ.get("IG_TOKEN", "").split())
+# Token do login do Instagram começa com "IG"; token do Facebook/login unificado começa com "EAA".
+TOKEN_KIND = "facebook" if TOKEN.startswith("EAA") else "instagram"
+API_HOST = "https://graph.facebook.com/" if TOKEN_KIND == "facebook" else "https://graph.instagram.com/"
+API = API_HOST + os.environ.get("IG_API_VERSION", "v23.0")
 MAX_PER_RUN = int(os.environ.get("MAX_PER_RUN", "30"))
 GAP_SECONDS = int(os.environ.get("GAP_SECONDS", "20"))
 MAX_ATTEMPTS = 3
@@ -296,6 +299,43 @@ def publish_item(ig, item):
     return media_id, permalink
 
 
+def find_ig_account():
+    """Descobre o id da conta do Instagram conforme o tipo de token."""
+    forced = os.environ.get("IG_USER_ID", "").strip()
+    if forced:
+        log(f"Conta: id {forced} (IG_USER_ID)")
+        return forced
+    if TOKEN_KIND == "instagram":
+        me = api("GET", "me", fields="user_id,username")
+        log(f"Conta: @{me.get('username')}")
+        return me.get("user_id") or me["id"]
+    # token do Facebook: procura a conta do Instagram nas Páginas e no portfólio
+    tries = [
+        ("me/accounts", {"fields": "instagram_business_account{id,username}"}),
+        ("me/businesses", {"fields": "owned_instagram_accounts{id,username},instagram_accounts{id,username}"}),
+    ]
+    found = []
+    for path, params in tries:
+        try:
+            data = api("GET", path, **params).get("data", [])
+        except Exception as e:
+            log(f"  ({path}: {e})")
+            continue
+        for row in data:
+            iba = row.get("instagram_business_account")
+            if iba:
+                found.append(iba)
+            for key in ("owned_instagram_accounts", "instagram_accounts"):
+                found.extend(row.get(key, {}).get("data", []))
+    want = os.environ.get("IG_USERNAME", "somosdanpe").lower()
+    for acc in found:
+        if (acc.get("username") or "").lower() == want:
+            log(f"Conta: @{acc['username']} (id {acc['id']})")
+            return acc["id"]
+    names = ", ".join(a.get("username") or a.get("id") for a in found) or "nenhuma"
+    raise RuntimeError(f"não achei @{want} com esse token (contas visíveis: {names})")
+
+
 # ---------------------------------------------------------------- git (só no Actions)
 
 def git_sync(message):
@@ -354,9 +394,8 @@ def main():
     if converted:
         git_sync("mídia: converte para JPEG")
 
-    me = api("GET", "me", fields="user_id,username")
-    ig = me.get("user_id") or me["id"]
-    log(f"Conta: @{me.get('username')}")
+    log(f"Token: tipo {TOKEN_KIND} ({len(TOKEN)} caracteres)")
+    ig = find_ig_account()
     try:
         limit = api("GET", f"{ig}/content_publishing_limit", fields="quota_usage,config")
         log(f"Cota de publicação (24h): {json.dumps(limit.get('data', limit), ensure_ascii=False)}")
